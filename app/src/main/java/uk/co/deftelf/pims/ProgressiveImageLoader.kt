@@ -36,12 +36,19 @@ class ProgressiveImageLoader(val imageView: ImageView) : Closeable, Target {
     }
 
     override fun onBitmapFailed(e: Exception?, errorDrawable: Drawable?) {
-        imageView.setImageResource(android.R.drawable.stat_sys_warning)
+        if (currentStep == 0) // If we failed on the current step show an error icon
+            imageView.setImageResource(android.R.drawable.stat_sys_warning)
+        // If we weren't on the first step then we actually did get a low-res image, so don't clear it, just leave it
     }
 
-    override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom?) {
+    override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom?) { // We got a new image
+        if (currentStep == 0 && // If we are getting our first image then fade in, else just snap replace
+                from != Picasso.LoadedFrom.MEMORY) { // If we got from Picasso mem cache then don't fade as it will be applied immediately to the view before user sees it
+            imageView.alpha = 0f
+            imageView.animate().alpha(1f).setDuration(200L).start()
+        }
         imageView.setImageBitmap(bitmap)
-        if (currentStep < loadFractionOrder.size - 1 &&
+        if (currentStep < loadFractionOrder.size - 1 && // If there are more steps to do
                 bitmap.width == getCurrentStepWidth()) { // Check server hasn't already sent us the biggest version, if it did then the width would be less than we asked for
             currentStep++
             fetchImage()
@@ -52,6 +59,8 @@ class ProgressiveImageLoader(val imageView: ImageView) : Closeable, Target {
     override fun close() {
         currentStep = 0
         Picasso.get().cancelRequest(imageView)
+        imageView.animate().cancel()
+        imageView.alpha = 1f
         imageView.setImageDrawable(null)
     }
 
