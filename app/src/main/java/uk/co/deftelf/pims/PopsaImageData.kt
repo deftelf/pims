@@ -1,6 +1,6 @@
 package uk.co.deftelf.pims
 
-data class PopsaImageData(
+open class PopsaImageData(
         val name: String,
         val format: String
 ) {
