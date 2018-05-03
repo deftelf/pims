@@ -1,5 +1,6 @@
 package uk.co.deftelf.pims
 
+import android.arch.lifecycle.Lifecycle
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.support.v7.widget.LinearLayoutManager
@@ -19,19 +20,20 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import com.squareup.moshi.Types.newParameterizedType
-
+import io.reactivex.android.schedulers.AndroidSchedulers
 
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var items: List<PopsaImageData>
+    private lateinit var viewmodel: MainActivityViewmodel
+
+    private var items: List<PopsaImageData> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val listType = Types.newParameterizedType(List::class.java, PopsaImageData::class.java)
-        items = Moshi.Builder().build().adapter<List<PopsaImageData>>(listType).fromJson(IOUtils.toString(assets.open("droid-techtest-photos.json")))!!
+        viewmodel = MainActivityViewmodel(assets, lifecycle)
 
         listView.layoutManager = LinearLayoutManager(this).apply {
             isItemPrefetchEnabled = true
@@ -39,6 +41,14 @@ class MainActivity : AppCompatActivity() {
         // Fastscrolling is enabled but is essentially useless since handle is too small
         // Something like this needs implementing https://stackoverflow.com/questions/47846873/recyclerview-fast-scroll-thumb-height-too-small-for-large-data-set
         listView.adapter = Adapter()
+
+        viewmodel.updater
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe {
+                    items = it.images
+                    // Really we should be using DiffUtils here...
+                    listView.adapter.notifyDataSetChanged()
+                }
     }
 
     inner class PhotoHolder(parent: ViewGroup) : RecyclerView.ViewHolder(LayoutInflater.from(this).inflate(R.layout.item_photo, parent, false)) {
